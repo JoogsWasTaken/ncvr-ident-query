@@ -1,0 +1,16 @@
+services:
+
+  postgres:
+    build: .
+    environment:
+      - POSTGRES_USER=ncvr
+      - POSTGRES_DB=ncvr
+      - POSTGRES_PASSWORD=ncvr
+    volumes:
+      - ./initdb.d/:/docker-entrypoint-initdb.d/
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  pg-data:
