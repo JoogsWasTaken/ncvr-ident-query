@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Application for running identification queries against the NCVR database"
 authors = ["Maximilian <git@eulenbu.de>"]
 readme = "README.md"
+packages = [{include = "ncvr"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
