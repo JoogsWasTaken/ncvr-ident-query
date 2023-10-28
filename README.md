@@ -86,7 +86,9 @@ $ poetry run ncvr list
 ### Run an identification query
 
 Use `poetry run ncvr query` to run an identification query against the NCVR database.
-You may select any combination of attributes. You can also use a simplified version of Python's slice notation to use substrings from attributes in your query.
+You may select any combination of attributes. 
+You can prepend an exclamation mark `!` to an attribute to ensure that all records have this attribute set, meaning that it's not empty.
+You can also use a simplified version of Python's slice notation to use substrings from attributes in your query.
 
 For example:
 

@@ -16,6 +16,7 @@ class PgColumnDef(NamedTuple):
 class QueryColumnSpec(NamedTuple):
     name: str
     range: tuple[int, int] | None
+    not_null: bool
 
 
 def _echo_and_exit(message: str, code: int = 1) -> Never:
@@ -34,11 +35,17 @@ def _parse_query_column(column_query: str):
         except ValueError:
             raise ValueError("range start/end must be a valid integer")
 
+    not_null = False
+
+    if column_query[0] == "!":
+        column_query = column_query[1:]
+        not_null = True
+
     range_start_idx = column_query.find("[")
 
     # no range specified, return as is
     if range_start_idx == -1:
-        return QueryColumnSpec(column_query, None)
+        return QueryColumnSpec(column_query, None, not_null)
 
     col_name = column_query[:range_start_idx]
     # assume that the last character is a closing square bracket
@@ -48,7 +55,7 @@ def _parse_query_column(column_query: str):
     match len(col_range_parts):
         case 1:
             x = _int(col_range_parts[0])
-            return QueryColumnSpec(col_name, (x, x + 1,))
+            return QueryColumnSpec(col_name, (x, x + 1,), not_null)
         case 2:
             x = _int(col_range_parts[0])
             y = _int(col_range_parts[1])
@@ -59,7 +66,7 @@ def _parse_query_column(column_query: str):
             if x < 0:
                 raise ValueError("start of range must not be lower than zero")
 
-            return QueryColumnSpec(col_name, (x, y,))
+            return QueryColumnSpec(col_name, (x, y,), not_null)
         case _:
             raise ValueError("range specification must contain at most one colon ':' character")
 
@@ -134,6 +141,7 @@ def run_query(
         pg_cols = _query_columns(conn)
         pg_col_dict: dict[str, PgColumnDef] = {col.name: col for col in pg_cols}
         pg_query_parts: list[str] = []
+        pg_not_null_column_names: list[str] = []
 
         # validate user query
         for query_col in query_spec:
@@ -141,6 +149,12 @@ def run_query(
                 _echo_and_exit(f"Unknown column: {query_col.name}")
 
             query_col_def = pg_col_dict[query_col.name]
+
+            # add the column to the WHERE clause if it's explicitly supposed to be not null.
+            # this only works on char types since year of birth, age at year-end and registration date are always set.
+            # so in a sense, the not-null option has no effect on anything but char cols.
+            if query_col.not_null and "character" in query_col_def.type:
+                pg_not_null_column_names.append(query_col.name)
 
             # if the user specified a range, check if the column supports it
             if query_col.range is not None:
@@ -162,12 +176,18 @@ def run_query(
         pg_query_select = " || '#' || ".join(pg_query_parts)
         record_count = _count_rows(conn)
 
+        inner_query = "SELECT COUNT(*) AS grp_sz FROM ncvr_plausible"
+
+        if len(pg_not_null_column_names) != 0:
+            # first append the " <> ''" bit to every column
+            where_not_null_cols = [f"{not_null_col} <> ''" for not_null_col in pg_not_null_column_names]
+            # then join them with 'AND' into the statement
+            inner_query += f" WHERE {' AND '.join(where_not_null_cols)}"
+
+        inner_query += f" GROUP BY {pg_query_select}"
+
         cur = conn.execute(f"""
-            SELECT grp_sz, COUNT(*) AS grp_cnt FROM (
-                SELECT COUNT(*) AS grp_sz
-                FROM ncvr_plausible
-                GROUP BY {pg_query_select}
-            ) tab_grp
+            SELECT grp_sz, COUNT(*) AS grp_cnt FROM ({inner_query}) tab_grp
             WHERE grp_sz <= %(max_group_size)s::integer
             GROUP BY grp_sz
             ORDER BY grp_sz ASC
