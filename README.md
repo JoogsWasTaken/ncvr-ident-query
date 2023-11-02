@@ -110,10 +110,52 @@ $ poetry run ncvr query first_name "last_name[0]"
 +------+--------+--------+--------+----------+
 ```
 
-Looking at the third row of the table, the result reads as follows: "There are 26,547 people, or roughly one in 80 people, who share the first name and the first character of their last name with two other people. These people make up 1.29% of the total population."
+Looking at the third row of the table, the result reads as follows: "There are 79,641 people, or roughly one in 80 people, who share the first name and the first character of their last name with two other people. These people make up 1.29% of the total population."
 
 The amount of attributes that you put into your query affects the runtime of the query.
 Go wild and try some complex attribute combinations, but be aware that the resulting queries might end up taking quite a bit more time.
+
+## Example queries to try out
+
+These are queries that I ran to demonstrate the tool in [my blog post on the importance of certain pieces of personal information over others in privacy-preserving record linkage](https://space.eulenbu.de/posts/bf-ncvr/).
+Feel free to run and modify them yourself to your heart's content.
+
+- `ncvr query \!first_name`
+- `ncvr query \!last_name`
+- `ncvr query \!first_name \!gender_cd`
+- `ncvr query \!last_name \!gender_cd`
+- `ncvr query \!first_name "\!last_name[0]"`
+- `ncvr query "\!first_name[0]" \!last_name`
+- `ncvr query \!first_name \!last_name`
+- `ncvr query \!first_name "\!last_name[0]" \!res_city`
+- `ncvr query "\!first_name[0]" \!last_name \!res_city`
+
+### A note on reproducibility
+
+There is a high chance you will not get the same results as I do in my blog post.
+The reason is that when you build the NCVR database as described above, the NCVR data is pulled from a file that is replaced once in a while with more up-to-date information.
+If you would like to use the exact data that I used in my blog post, edit the [Docker Compose file](docker/docker-compose.yml) like so.
+This will use a pre-built image with a copy of the dataset that I used when writing my blog post.
+
+```diff
+services:
+
+  postgres:
+-   build: .
++   image: quay.io/joogs/ncvr-postgres:v2023-11-02
+    environment:
+      - POSTGRES_USER=ncvr
+      - POSTGRES_DB=ncvr
+      - POSTGRES_PASSWORD=ncvr
+    volumes:
+      - ./initdb.d/:/docker-entrypoint-initdb.d/
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  pg-data:
+```
 
 ## License
 
