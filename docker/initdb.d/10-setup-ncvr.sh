@@ -2,9 +2,8 @@
 set -eux
 
 cd /tmp
-curl -o ncvr.zip -sL "https://s3.amazonaws.com/dl.ncsbe.gov/data/ncvoter_Statewide.zip"
 unzip -q ncvr.zip
-mv ./*.txt ncvr.txt
+mv ncvoter_Statewide.txt ncvr.txt
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 CREATE TABLE ncvr (
@@ -93,4 +92,4 @@ AND full_phone_number !~ '^0+$'
 AND LENGTH(mail_zipcode) in (5, 9);
 EOSQL
 
-rm /tmp/*
+rm /tmp/ncvr.txt
